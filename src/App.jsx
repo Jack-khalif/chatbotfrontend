@@ -27,7 +27,7 @@ function App() {
         setLoading(true);
 
         try {
-            const response = await fetch('http://localhost:8000/chat', { // Replace with your backend URL
+            const response = await fetch('https://chatbot-backend-uyne.onrender.com/chat', { // Replace with your backend URL
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

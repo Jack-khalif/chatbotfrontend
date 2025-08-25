@@ -1,80 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import './App.css'; // Import the CSS file
-
+import React, { useState } from "react";
+import "./App.css"
 function App() {
-    const [userInput, setUserInput] = useState('');
-    const [chatLog, setChatLog] = useState([]);
-    const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState([
+    { sender: "bot", text: "Hello! Upload an image or type a message to begin." },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [image, setImage] = useState(null);
 
-    // Load chat history from local storage on component mount
-    useEffect(() => {
-        const storedChatLog = localStorage.getItem('chatLog');
-        if (storedChatLog) {
-            setChatLog(JSON.parse(storedChatLog));
-        }
-    }, []);
+  const handleSend = async () => {
+    if (!input && !image) return;
 
-    const handleInputChange = (event) => {
-        setUserInput(event.target.value);
-    };
+    const newMessage = { sender: "user", text: input, image: image ? URL.createObjectURL(image) : null };
+    setMessages([...messages, newMessage]);
+    setInput("");
+    setImage(null);
+    setLoading(true);
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
-        if (!userInput.trim()) return;  // Prevent submitting empty messages
-        const userMessage = { type: 'user', text: userInput };
-        setChatLog(prevChatLog => [...prevChatLog, userMessage]);
-        setUserInput(''); // Clear input immediately
-        setLoading(true);
+    try {
+      const formData = new FormData();
+      if (input) formData.append("message", input);
+      if (image) formData.append("image", image);
 
-        try {
-            const response = await fetch('https://chatbot-backend-uyne.onrender.com/chat', { // Replace with your backend URL
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ user_message: userInput }),
-            });
+      const response = await fetch("https://YOUR_RENDER_URL/chat", {
+        method: "POST",
+        body: formData,
+      });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+      const data = await response.json();
+      setMessages((prev) => [...prev, { sender: "bot", text: data.reply }]);
+    } catch (error) {
+      console.error(error);
+      setMessages((prev) => [...prev, { sender: "bot", text: "Error connecting to server." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            const data = await response.json();
-            const botMessage = { type: 'bot', text: data.bot_response };
-            setChatLog(prevChatLog => [...prevChatLog, botMessage]);
-            // Save chat log to local storage
-            localStorage.setItem('chatLog', JSON.stringify([...chatLog, userMessage, botMessage]));
-        } catch (error) {
-            console.error('Error:', error);
-            const errorMessage = { type: 'error', text: 'An error occurred. Please try again.' };
-            setChatLog(prevChatLog => [...prevChatLog, errorMessage]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="App">
-            <h1>Simple AI Chatbot</h1>
-            <div className="chat-window">
-                {chatLog.map((message, index) => (
-                    <div key={index} className={`message ${message.type}`}>
-                        {message.text}
-                    </div>
-                ))}
-                {loading && <div className="message bot">Loading...</div>}
+  return (
+    <div className="flex flex-col h-screen bg-gray-100">
+      {/* Chat messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`p-3 rounded-2xl max-w-xs shadow-md ${
+                msg.sender === "user" ? "bg-blue-500 text-white" : "bg-white text-gray-800"
+              }`}
+            >
+              {msg.image && (
+                <img src={msg.image} alt="uploaded" className="rounded-lg mb-2 max-h-40 object-cover" />
+              )}
+              <p>{msg.text}</p>
             </div>
-            <form onSubmit={handleSubmit}>
-                <input
-                    type="text"
-                    value={userInput}
-                    onChange={handleInputChange}
-                    placeholder="Type your message..."
-                />
-                <button type="submit" disabled={loading}>Send</button>
-            </form>
-        </div>
-    );
+          </div>
+        ))}
+        {loading && <p className="text-gray-500">Bot is typing...</p>}
+      </div>
+
+      {/* Input area */}
+      <div className="p-4 bg-white border-t flex items-center gap-2">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setImage(e.target.files[0])}
+          className="text-sm"
+        />
+        <input
+          type="text"
+          className="flex-1 border rounded-lg p-2 outline-none"
+          placeholder="Type a message..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+        />
+        <button
+          onClick={handleSend}
+          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default App;
